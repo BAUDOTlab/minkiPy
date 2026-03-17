@@ -75,6 +75,7 @@ conda activate minkiPy
 If you want to use the `minkiPy` conda environment from Jupyter Notebook or JupyterLab, you should also register it as a Jupyter kernel:
 
 ```bash
+conda install conda-forge::ipykernel
 python -m ipykernel install --user --name minkiPy --display-name "Python (minkiPy)"
 ```
 
