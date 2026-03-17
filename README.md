@@ -72,6 +72,14 @@ conda env create -f minkiPy_env.yaml
 conda activate minkiPy
 ```
 
+If you want to use the `minkiPy` conda environment from Jupyter Notebook or JupyterLab, you should also register it as a Jupyter kernel:
+
+```bash
+python -m ipykernel install --user --name minkiPy --display-name "Python (minkiPy)"
+```
+
+This step is necessary if you want the environment to appear as an available kernel in Jupyter.
+
 ### 3) Use the package from the repository root
 
 The repository does not yet include packaging metadata such as `pyproject.toml` or `setup.py`, although this will be added in a future update. For now, `minkiPy` is typically used directly from the repository root, or with `PYTHONPATH` pointing to it.
