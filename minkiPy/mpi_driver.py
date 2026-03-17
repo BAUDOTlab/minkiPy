@@ -134,20 +134,32 @@ def compute_Minkowski_profiles(
         if oversubscribe:
             cmd += ["--map-by", ":OVERSUBSCRIBE"]
         
-        # >>> ICI EXACTEMENT <<<
         if extra_mpirun_args:
             cmd += list(extra_mpirun_args)
         
         cmd += [sys.executable, "-m", "minkiPy", "--run-config", cfg_path]
 
-        proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
-        if proc.returncode != 0:
+        proc = subprocess.Popen(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+        captured_lines = []
+        assert proc.stdout is not None
+        for line in proc.stdout:
+            print(line, end="")
+            captured_lines.append(line)
+        returncode = proc.wait()
+        if returncode != 0:
             raise RuntimeError(
                 "Auto-MPI subprocess failed.\n"
                 f"Command: {' '.join(cmd)}\n\n"
-                f"STDOUT:\n{proc.stdout}\n\n"
-                f"STDERR:\n{proc.stderr}\n"
+                "Combined STDOUT/STDERR:\n"
+                f"{''.join(captured_lines)}\n"
             )
+
 
 
 
