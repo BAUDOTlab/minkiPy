@@ -41,6 +41,7 @@ dependencies:
 
   # Notebook environment
   - ipykernel
+  - ipywidgets
   - jupyterlab
   - notebook
 
