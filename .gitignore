@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+examples/*
+!examples/.gitkeep
+
+.env
+.conda/
+

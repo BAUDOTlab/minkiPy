@@ -1,0 +1,48 @@
+name: minkiPy
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+
+  # Core scientific stack
+  - numpy
+  - pandas
+  - scipy
+  - scikit-learn
+  - numba
+  - matplotlib
+
+  # I/O
+  - h5py
+  - pyarrow
+  - tifffile
+  - requests
+
+  # Spatial / single-cell ecosystem
+  - scanpy
+
+  # MPI
+  - openmpi
+  - mpi4py
+
+  # Graphs / clustering / embeddings
+  - umap-learn
+  - networkx
+  - python-igraph
+  - leidenalg
+  - python-louvain
+
+  # Plotting helpers
+  - adjusttext
+  - tqdm
+
+  # Optional export helpers used in downstream
+  - pyreadr
+
+  # Notebook environment
+  - ipykernel
+  - jupyterlab
+  - notebook
+
+  # Packaging / utility
+  - pip
