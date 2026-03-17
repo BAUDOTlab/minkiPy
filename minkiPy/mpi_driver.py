@@ -138,9 +138,17 @@ def compute_Minkowski_profiles(
         if extra_mpirun_args:
             cmd += list(extra_mpirun_args)
         
-        cmd += ["python", "-m", "minkiPy", "--run-config", cfg_path]
-        
-        subprocess.run(cmd, check=True)
+        cmd += [sys.executable, "-m", "minkiPy", "--run-config", cfg_path]
+
+        proc = subprocess.run(cmd, check=False, capture_output=True, text=True)
+        if proc.returncode != 0:
+            raise RuntimeError(
+                "Auto-MPI subprocess failed.\n"
+                f"Command: {' '.join(cmd)}\n\n"
+                f"STDOUT:\n{proc.stdout}\n\n"
+                f"STDERR:\n{proc.stderr}\n"
+            )
+
 
 
         merged_file = os.path.join(output_path, f"minkiPy_merged_resolution_{resolution}_{name}.h5")
