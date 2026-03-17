@@ -1,5 +1,9 @@
 # minkiPy
 
+<p align="center">
+  <img src="minkiPy_illust.png" alt="3D density distribution separated into level sets" width="520">
+</p>
+
 `minkiPy` is a Python framework for the differential analysis of gene spatial organisation in spatial transcriptomics data using Minkowski functionals and tensors.
 
 ## Core input requirement
