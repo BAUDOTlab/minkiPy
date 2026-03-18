@@ -63,7 +63,35 @@ git clone https://github.com/BAUDOTlab/minkiPy.git
 cd minkiPy
 ```
 
-### 2) Create the conda environment
+### 2) Install an MPI implementation on your machine (required)
+
+`mpi4py` is a Python binding, but it still requires a system MPI runtime (`mpirun`/`mpiexec`) to be installed first.
+
+Check whether MPI is already available:
+
+```bash
+mpirun --version
+```
+
+If this command is not found, install MPI first:
+
+- **Ubuntu/Debian**
+  ```bash
+  sudo apt update
+  sudo apt install -y openmpi-bin libopenmpi-dev
+  ```
+- **macOS (Homebrew)**
+  ```bash
+  brew install open-mpi
+  ```
+- **Conda-only setup (cross-platform)**
+  ```bash
+  conda install -c conda-forge openmpi mpi4py
+  ```
+
+On HPC clusters, MPI is often provided through environment modules (for example `module load openmpi` or `module load mpich`).
+
+### 3) Create the conda environment
 
 The repository provides the environment file `minkiPy_env.yaml`.
 
@@ -80,7 +108,7 @@ python -m ipykernel install --user --name minkiPy --display-name "Python (minkiP
 
 This step is necessary if you want the environment to appear as an available kernel in Jupyter.
 
-### 3) Use the package from the repository root
+### 4) Use the package from the repository root
 
 The repository does not yet include packaging metadata such as `pyproject.toml` or `setup.py`, although this will be added in a future update. For now, `minkiPy` is typically used directly from the repository root, or with `PYTHONPATH` pointing to it.
 
@@ -121,7 +149,11 @@ h5_path = minkiPy.compute_Minkowski_profiles(
     resolution=20.0,          # Spatial grid resolution, in micrometres
     nbr=25,                   # Number of level sets used to build the Minkowski profiles
     n_cov_samples=None,       # Use the default number of Monte Carlo realisations determined by minkiPy; set to 0 for a faster exploratory run without covariance estimation
+    # mpi_procs is optional:
+    # - if omitted, minkiPy automatically uses all available CPUs
+    # - set mpi_procs=1 to force single-process execution
 )
+
 ```
 
 This computes per-gene profiles and writes a merged file:
@@ -207,6 +239,28 @@ h5_path = minkiPy.compute_Minkowski_profiles(
 ```
 
 This is particularly convenient in notebook-based workflows and Python scripts, while still allowing efficient parallel execution on multi-core or multi-node systems.
+
+
+### Optional MPI-related parameters in `compute_Minkowski_profiles`
+
+`compute_Minkowski_profiles(...)` exposes a few MPI options that are useful when running from Python or notebooks:
+
+- `mpi_procs` (`int | None`, default: `None`)  
+  Number of MPI processes to launch when you are **not already under MPI**.  
+  - `None` (default): automatically uses `SLURM_NTASKS` if defined, otherwise `os.cpu_count()`.
+  - `1`: disables auto-MPI spawning and runs in a single Python process.
+  - `>1`: launches `mpirun -n <mpi_procs> ...`.
+- `use_hwthreads` (`bool`, default: `False`)  
+  Adds `--use-hwthread-cpus` to `mpirun` (OpenMPI-style) to also use logical CPUs (hyper-threads).
+- `oversubscribe` (`bool`, default: `False`)  
+  Adds `--map-by :OVERSUBSCRIBE`, which can help when launching more ranks than available slots.
+- `extra_mpirun_args` (`list[str] | None`, default: `None`)  
+  Additional flags appended to the `mpirun` command (for scheduler/network tuning, binding policies, etc.).
+- `tmp_dir` (`str | None`, default: `None`)  
+  Temporary directory used to stage the input DataFrame and config for spawned MPI workers.
+
+For users unfamiliar with MPI, the default behaviour is usually sufficient: install MPI once, call `compute_Minkowski_profiles(...)` normally, and let minkiPy use all detected CPUs automatically.
+
 
 ---
 
