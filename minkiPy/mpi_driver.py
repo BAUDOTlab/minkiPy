@@ -400,6 +400,14 @@ def compute_Minkowski_profiles_auto_mpi(
     mpirun: str = "mpirun",
     extra_mpirun_args: list[str] | None = None,
 ) -> str | None:
+    """
+    Run ``compute_Minkowski_profiles`` with automatic MPI spawning when needed.
+
+    When already inside an MPI context (``size > 1``), this function directly
+    delegates to ``compute_Minkowski_profiles``. Otherwise, it serialises the
+    transcript table and launches ``python -m minkiPy --run-config <json>``
+    under ``mpirun``.
+    """
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
 
@@ -427,9 +435,15 @@ def compute_Minkowski_profiles_auto_mpi(
         prefix = os.path.join(tmpdir, f"minkipy_{name}")
         df_path, df_fmt = _write_transcripts_df(transcripts_df, prefix)
 
+        # NOTE: keep keys aligned with `_run_from_config`, which expects
+        # `input` and `input_format`.
+        
         cfg = {
-            "df_path": df_path,
-            "df_format": df_fmt,
+            "input": df_path,
+            "input_format": df_fmt,
+            "gene_col": "gene",
+            "x_col": "global_x",
+            "y_col": "global_y",
             "name": name,
             "output_path": output_path,
             "resolution": float(resolution),
