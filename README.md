@@ -63,7 +63,7 @@ git clone https://github.com/BAUDOTlab/minkiPy.git
 cd minkiPy
 ```
 
-### 2) Install an MPI implementation on your machine (required)
+### 2) Install an MPI implementation on your machine for parallelization (required)
 
 `mpi4py` is a Python binding, but it still requires a system MPI runtime (`mpirun`/`mpiexec`) to be installed first.
 
