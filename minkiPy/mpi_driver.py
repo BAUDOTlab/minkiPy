@@ -76,8 +76,21 @@ def compute_Minkowski_profiles(
     Compute Minkowski profiles for one sample from a user-provided DataFrame.
     Required columns: ['gene','global_x','global_y'].
     Writes results to disk and returns merged HDF5 path on rank 0, else None.
+    
+    Parallel execution behaviour:
+      - If called under MPI (size > 1), work is distributed across ranks.
+      - If called from a single-process Python session and ``mpi_procs`` is not
+        provided, minkiPy defaults to all available CPUs (or ``SLURM_NTASKS``).
+      - Users can override this with ``mpi_procs=<N>`` (including ``1`` to force
+        single-process execution).
+
     """
-    # ---- AUTO-MPI mode: spawn mpirun from a single-process context ----
+    # ---- AUTO-MPI mode: optionally spawn mpirun from a single-process context ----
+    if comm is None:
+        comm = MPI.COMM_WORLD
+    if comm.Get_size() == 1 and mpi_procs is None:
+        mpi_procs = int(os.environ.get("SLURM_NTASKS") or os.cpu_count() or 1)
+
     if mpi_procs is not None and mpi_procs > 1:
         import json, tempfile, subprocess
         import pandas as pd
