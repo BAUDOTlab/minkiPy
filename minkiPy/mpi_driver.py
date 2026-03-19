@@ -11,6 +11,97 @@ from mpi4py import MPI
 
 from . import minkowski_core
 
+def _detect_default_mpi_procs() -> int:
+    """
+    Detect a sensible default process count for auto-MPI mode.
+    Priority:
+      1) SLURM_NTASKS when > 1 (explicit MPI allocation)
+      2) CPU affinity (cpuset-aware)
+      3) os.cpu_count()
+    """
+    slurm_ntasks = os.environ.get("SLURM_NTASKS")
+    if slurm_ntasks:
+        try:
+            ntasks = int(slurm_ntasks)
+            if ntasks > 1:
+                return ntasks
+        except ValueError:
+            pass
+
+    try:
+        affinity_cpus = len(os.sched_getaffinity(0))
+        if affinity_cpus > 0:
+            return affinity_cpus
+    except (AttributeError, OSError):
+        pass
+
+    return int(os.cpu_count() or 1)
+
+
+def _detect_physical_cores_with_lscpu() -> int | None:
+    """
+    Best-effort detection of physical core count visible to this process.
+    Uses ``lscpu -p=CPU,CORE,SOCKET`` and intersects with CPU affinity.
+    Returns ``None`` when unavailable.
+    """
+    try:
+        affinity = os.sched_getaffinity(0)
+    except (AttributeError, OSError):
+        affinity = None
+
+    try:
+        proc = subprocess.run(
+            ["lscpu", "-p=CPU,CORE,SOCKET"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return None
+
+    physical = set()
+    for raw in proc.stdout.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        parts = line.split(",")
+        if len(parts) < 3:
+            continue
+        try:
+            cpu = int(parts[0])
+            core = int(parts[1])
+            socket = int(parts[2])
+        except ValueError:
+            continue
+
+        if affinity is not None and cpu not in affinity:
+            continue
+        physical.add((socket, core))
+
+    return len(physical) if physical else None
+
+
+def _detect_mpi_slot_capacity(*, use_hwthreads: bool) -> int:
+    """
+    Estimate how many Open MPI slots are likely available on this host.
+
+    - With ``use_hwthreads=True``, slots map to logical CPUs in affinity.
+    - Otherwise, prefer physical core count (best effort), then affinity size.
+    """
+    try:
+        affinity_cpus = len(os.sched_getaffinity(0))
+    except (AttributeError, OSError):
+        affinity_cpus = int(os.cpu_count() or 1)
+
+    if use_hwthreads:
+        return max(1, affinity_cpus)
+
+    physical = _detect_physical_cores_with_lscpu()
+    if physical is not None:
+        return max(1, physical)
+
+    return max(1, affinity_cpus)
+
 
 def redistribute_data_amongs_ranks(processed_df: pd.DataFrame, comm=MPI.COMM_WORLD):
     """
@@ -88,15 +179,36 @@ def compute_Minkowski_profiles(
     # ---- AUTO-MPI mode: optionally spawn mpirun from a single-process context ----
     if comm is None:
         comm = MPI.COMM_WORLD
-    if comm.Get_size() == 1 and mpi_procs is None:
-        mpi_procs = int(os.environ.get("SLURM_NTASKS") or os.cpu_count() or 1)
+    slot_capacity = None
+    if comm.Get_size() == 1:
+        slot_capacity = _detect_mpi_slot_capacity(use_hwthreads=use_hwthreads)
+        if mpi_procs is None:
+            mpi_procs = min(_detect_default_mpi_procs(), slot_capacity)
+
+    if mpi_procs is not None:
+        try:
+            mpi_procs = int(mpi_procs)
+        except (TypeError, ValueError):
+            raise ValueError(f"mpi_procs must be an integer or None (got {mpi_procs!r}).")
+
+        if mpi_procs < 1:
+            raise ValueError(f"mpi_procs must be >= 1 (got {mpi_procs}).")
+
+        if (slot_capacity is not None) and (not oversubscribe) and mpi_procs > slot_capacity:
+            raise ValueError(
+                "Requested mpi_procs exceeds detected local MPI slot capacity "
+                "(Open MPI default slots are usually physical cores unless "
+                "--use-hwthread-cpus is enabled). "
+                f"Requested={mpi_procs}, available={slot_capacity}, "
+                f"use_hwthreads={use_hwthreads}, oversubscribe={oversubscribe}. "
+                "Use a smaller mpi_procs, set use_hwthreads=True, or set oversubscribe=True."
+            )
+
 
     if mpi_procs is not None and mpi_procs > 1:
-        import json, tempfile, subprocess
-        import pandas as pd
+        
 
         # if user is already under MPI, do NOT respawn
-        from mpi4py import MPI
         _comm = MPI.COMM_WORLD if comm is None else comm
         if _comm.Get_size() != 1:
             raise ValueError("mpi_procs>1 requested but already running under MPI.")
@@ -182,7 +294,6 @@ def compute_Minkowski_profiles(
 
         return merged_file
      
-    from mpi4py import MPI
     if comm is None:
         comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
