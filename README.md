@@ -151,6 +151,7 @@ h5_path = minkiPy.compute_Minkowski_profiles(
     n_cov_samples=None,       # Use the default number of Monte Carlo realisations determined by minkiPy; set to 0 for a faster exploratory run without covariance estimation
     # mpi_procs is optional:
     # - if omitted, minkiPy automatically uses all available CPUs
+    # - reducing mpi_procs can lower RAM usage
     # - set mpi_procs=1 to force single-process execution
 )
 
