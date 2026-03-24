@@ -11,6 +11,68 @@ from mpi4py import MPI
 
 from . import minkowski_core
 
+def _format_bytes(n_bytes: float) -> str:
+    """Human-readable memory size."""
+    units = ["B", "KiB", "MiB", "GiB", "TiB"]
+    value = float(max(0.0, n_bytes))
+    for unit in units:
+        if value < 1024.0 or unit == units[-1]:
+            return f"{value:.2f} {unit}"
+        value /= 1024.0
+    return f"{value:.2f} TiB"
+
+
+def _estimate_peak_ram_bytes(
+    *,
+    processed_df: pd.DataFrame,
+    gene_counts: pd.Series,
+    size: int,
+    grid_size: int,
+    nbr: int,
+    n_cov_samples: int,
+) -> float:
+    """
+    Coarse, deterministic upper bound for peak RAM usage.
+    """
+    # Memory footprint of the main input table (rank 0 only).
+    df_bytes = float(processed_df.memory_usage(deep=True).sum())
+    n_rows = int(len(processed_df))
+    bytes_per_row = (df_bytes / n_rows) if n_rows > 0 else 0.0
+
+    # Rank data split (same strategy as redistribute_data_amongs_ranks).
+    total_genes = int(len(gene_counts))
+    chunk_size = total_genes // size
+    remainder = total_genes % size
+    counts_arr = gene_counts.to_numpy(dtype=np.int64, copy=False)
+
+    max_rows_rank = 0
+    rank0_rows = 0
+    offset = 0
+    for r in range(size):
+        take = chunk_size + (1 if r < remainder else 0)
+        rows_r = int(counts_arr[offset:offset + take].sum())
+        if r == 0:
+            rank0_rows = rows_r
+        if rows_r > max_rows_rank:
+            max_rows_rank = rows_r
+        offset += take
+
+    # Dominant per-gene temporary arrays.
+    max_gene_transcripts = int(gene_counts.max()) if total_genes > 0 else 0
+    grid_cells = int(grid_size) * int(grid_size)
+    grid_work_bytes = float(grid_cells) * 32.0  # conservative factor for dense grid temporaries
+    cov_bytes = float(4 * n_cov_samples * nbr) * 8.0
+    profile_bytes = float(4 * nbr) * 8.0
+    coords_bytes = float(2 * max_gene_transcripts) * 8.0
+    per_gene_work_bytes = grid_work_bytes + cov_bytes + profile_bytes + coords_bytes
+
+    # Worst worker rank (holds one local shard + per-gene workspace).
+    worker_peak = max_rows_rank * bytes_per_row + per_gene_work_bytes
+    # Rank 0 also keeps the full processed dataframe in memory.
+    rank0_peak = df_bytes + rank0_rows * bytes_per_row + per_gene_work_bytes
+
+    return max(worker_peak, rank0_peak)
+
 def _detect_default_mpi_procs() -> int:
     """
     Detect a sensible default process count for auto-MPI mode.
@@ -348,6 +410,28 @@ def compute_Minkowski_profiles(
         area_plane = (edges[-1] - edges[0]) ** 2
         frac_area = (area_mask_local / area_plane) * (grid_size**2)
 
+        non_blank_mask = ~processed_df["gene"].str.startswith("Blank")
+        gene_counts = (
+            processed_df.loc[non_blank_mask, "gene"]
+            .value_counts(sort=False)
+            .sort_index()
+        )
+
+        est_peak_ram_bytes = _estimate_peak_ram_bytes(
+            processed_df=processed_df,
+            gene_counts=gene_counts,
+            size=size,
+            grid_size=grid_size,
+            nbr=int(nbr),
+            n_cov_samples=int(n_cov_samples),
+        )
+
+        mode = "MPI" if size > 1 else "non-MPI"
+        print(
+            f"[minkiPy] Mode={mode} | CPUs used={size} | Estimated peak RAM={_format_bytes(est_peak_ram_bytes)}",
+            flush=True,
+        )
+
         local_genes, local_data = redistribute_data_amongs_ranks(processed_df, comm=comm)
 
         param_dict = {
@@ -378,10 +462,6 @@ def compute_Minkowski_profiles(
     n_cov_samples = param_dict["n_cov_samples"]
     area_mask_local = param_dict["area_mask"]
 
-    print(
-        f"[Rank {rank}] local_data shape = {local_data.shape}, #genes = {len(local_genes)}",
-        flush=True,
-    )
 
     for gene in local_genes:
         minkowski_core.process_gene(
