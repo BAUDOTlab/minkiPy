@@ -24,6 +24,7 @@ def _format_bytes(n_bytes: float) -> str:
 
 def _estimate_peak_ram_bytes(
     *,
+    input_df_bytes: float,
     processed_df: pd.DataFrame,
     gene_counts: pd.Series,
     size: int,
@@ -68,8 +69,17 @@ def _estimate_peak_ram_bytes(
 
     # Worst worker rank (holds one local shard + per-gene workspace).
     worker_peak = max_rows_rank * bytes_per_row + per_gene_work_bytes
-    # Rank 0 also keeps the full processed dataframe in memory.
-    rank0_peak = df_bytes + rank0_rows * bytes_per_row + per_gene_work_bytes
+    # Rank 0 keeps the caller-provided table + processed_df in memory.
+    # During redistribution it also materializes one shard at a time with
+    # boolean masks; the largest such transient can be as large as the
+    # largest rank shard, not necessarily rank 0's own shard.
+    rank0_transient_rows = max(rank0_rows, max_rows_rank)
+    rank0_peak = (
+        float(input_df_bytes)
+        + df_bytes
+        + rank0_transient_rows * bytes_per_row
+        + per_gene_work_bytes
+    )
 
     return max(worker_peak, rank0_peak)
 
@@ -427,6 +437,7 @@ def compute_Minkowski_profiles(
         )
 
         est_peak_ram_bytes = _estimate_peak_ram_bytes(
+            input_df_bytes=float(transcripts_df.memory_usage(deep=True).sum()),
             processed_df=processed_df,
             gene_counts=gene_counts,
             size=size,
