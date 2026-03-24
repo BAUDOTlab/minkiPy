@@ -215,6 +215,7 @@ def compute_Minkowski_profiles(
     resolution: float = 20.0,
     nbr: int = 25,
     n_cov_samples: int | None = None,
+    mc_seed: int | None = None,
     area_mask: float | None = None,
     overwrite: bool = False,
     comm=None,
@@ -236,6 +237,8 @@ def compute_Minkowski_profiles(
         provided, minkiPy defaults to all available CPUs (or ``SLURM_NTASKS``).
       - Users can override this with ``mpi_procs=<N>`` (including ``1`` to force
         single-process execution).
+      - ``mc_seed`` can be set to make Monte Carlo covariance realisations
+        reproducible across reruns while keeping samples distinct.
 
     """
     # ---- AUTO-MPI mode: optionally spawn mpirun from a single-process context ----
@@ -266,6 +269,11 @@ def compute_Minkowski_profiles(
                 "Use a smaller mpi_procs, set use_hwthreads=True, or set oversubscribe=True."
             )
 
+    if mc_seed is not None:
+        try:
+            mc_seed = int(mc_seed)
+        except (TypeError, ValueError):
+            raise ValueError(f"mc_seed must be an integer or None (got {mc_seed!r}).")
 
     if mpi_procs is not None and mpi_procs > 1:
         
@@ -305,6 +313,7 @@ def compute_Minkowski_profiles(
             "resolution": float(resolution),
             "nbr": int(nbr),
             "n_cov_samples": None if n_cov_samples is None else int(n_cov_samples),
+            "mc_seed": None if mc_seed is None else int(mc_seed),
             "area_mask": None if area_mask is None else float(area_mask),
             "overwrite": bool(overwrite),
         }
@@ -443,6 +452,7 @@ def compute_Minkowski_profiles(
             "output_path": output_path,
             "name": name,
             "n_cov_samples": int(n_cov_samples),
+            "mc_seed": None if mc_seed is None else int(mc_seed),
             "edges": edges.astype(np.float32),
             "area_mask": float(area_mask_local),
         }
@@ -460,6 +470,7 @@ def compute_Minkowski_profiles(
     output_path = param_dict["output_path"]
     name = param_dict["name"]
     n_cov_samples = param_dict["n_cov_samples"]
+    mc_seed = param_dict["mc_seed"]
     area_mask_local = param_dict["area_mask"]
 
 
@@ -474,6 +485,7 @@ def compute_Minkowski_profiles(
             output_path,
             name,
             n_cov_samples,
+            mc_seed,
         )
 
     del local_data, local_genes
@@ -565,6 +577,7 @@ def _run_from_config(config_path: str, comm=None) -> int:
         resolution=float(cfg.get("resolution", 20.0)),
         nbr=int(cfg.get("nbr", 25)),
         n_cov_samples=cfg.get("n_cov_samples", None),
+        mc_seed=cfg.get("mc_seed", None),
         area_mask=cfg.get("area_mask", None),
         overwrite=bool(cfg.get("overwrite", False)),
         comm=comm,
@@ -585,6 +598,7 @@ def compute_Minkowski_profiles_auto_mpi(
     resolution: float = 20.0,
     nbr: int = 25,
     n_cov_samples: int | None = None,
+    mc_seed: int | None = None,
     area_mask: float | None = None,
     overwrite: bool = False,
     n_ranks: int | None = None,
@@ -610,6 +624,7 @@ def compute_Minkowski_profiles_auto_mpi(
             resolution=resolution,
             nbr=nbr,
             n_cov_samples=n_cov_samples,
+            mc_seed=mc_seed,
             area_mask=area_mask,
             overwrite=overwrite,
             comm=comm,
@@ -640,6 +655,7 @@ def compute_Minkowski_profiles_auto_mpi(
             "resolution": float(resolution),
             "nbr": int(nbr),
             "n_cov_samples": n_cov_samples,
+            "mc_seed": mc_seed,
             "area_mask": area_mask,
             "overwrite": overwrite,
         }
