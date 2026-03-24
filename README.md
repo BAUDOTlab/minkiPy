@@ -56,14 +56,7 @@ minkiPy/
 
 ## Installation
 
-### 1) Clone the repository
-
-```bash
-git clone https://github.com/BAUDOTlab/minkiPy.git
-cd minkiPy
-```
-
-### 2) Install an MPI implementation on your machine for parallelization (required)
+### 1) Install an MPI implementation on your machine for parallelization (required)
 
 `mpi4py` is a Python binding, but it still requires a system MPI runtime (`mpirun`/`mpiexec`) to be installed first.
 
@@ -91,26 +84,34 @@ If this command is not found, install MPI first:
 
 On HPC clusters, MPI is often provided through environment modules (for example `module load openmpi` or `module load mpich`).
 
-### 3) Create the conda environment
-
-The repository provides the environment file `minkiPy_env.yaml`.
+### 2) Install from pip (recommended)
 
 ```bash
-conda env create -f minkiPy_env.yaml
-conda activate minkiPy
+pip install minkipy-st
 ```
 
-If you want to use the `minkiPy` conda environment from Jupyter Notebook or JupyterLab, you should also register it as a Jupyter kernel:
+Package name on PyPI is `minkipy-st`, while import and CLI names remain `minkiPy`.
 
 ```bash
-python -m ipykernel install --user --name minkiPy --display-name "Python (minkiPy)"
+python -c "import minkiPy; print('minkiPy import OK')"
+minkiPy --help
 ```
 
-This step is necessary if you want the environment to appear as an available kernel in Jupyter.
+You can also use:
 
-### 4) Use the package from the repository root
+```bash
+python -m minkiPy --help
+```
 
-The repository does not yet include packaging metadata such as `pyproject.toml` or `setup.py`, although this will be added in a future update. For now, `minkiPy` is typically used directly from the repository root, or with `PYTHONPATH` pointing to it.
+### 3) Optional: local development install from source
+
+```bash
+git clone https://github.com/BAUDOTlab/minkiPy.git
+cd minkiPy
+pip install -e .
+```
+
+If you prefer a Conda environment for notebooks, the repository also provides `minkiPy_env.yaml`.
 
 ---
 
