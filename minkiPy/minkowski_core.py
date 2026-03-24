@@ -1080,6 +1080,7 @@ def process_gene(
     output_path,
     name,
     n_cov_samples,
+    mc_seed,
 ):
     """
     Process a single gene: build its Minkowski profiles (W0, W1, W2, Beta),
@@ -1109,6 +1110,10 @@ def process_gene(
     n_cov_samples : int
         Number of Monte Carlo realisations to draw for shot-noise covariance.
         If <= 0, covariance is not computed.
+    mc_seed : int or None
+        Optional base seed for Monte Carlo covariance realisations.
+        If provided, rerunning with the same inputs reproduces the same
+        covariance realisations.
 
     Notes
     -----
@@ -1156,6 +1161,7 @@ def process_gene(
             edges,
             nbr,
             frac_area,
+            mc_seed=mc_seed,
         )
 
     # For synthetic subsamples, ensure the label encodes the *actual* size:
@@ -1398,7 +1404,15 @@ def sample_positions(expected_counts, vertex_field, edges, pixel_size, rng_seed)
     return transcript_positions
 
 
-def SN_respl_covariance(x_locations, y_locations, n_cov_samples, edges, nbr, frac_area):
+def SN_respl_covariance(
+    x_locations,
+    y_locations,
+    n_cov_samples,
+    edges,
+    nbr,
+    frac_area,
+    mc_seed=None,
+):
     """
     Estimate shot-noise covariance of Minkowski profiles via Monte Carlo resampling.
 
@@ -1426,6 +1440,9 @@ def SN_respl_covariance(x_locations, y_locations, n_cov_samples, edges, nbr, fra
     frac_area : float
         Kept for backward compatibility; not used in the current
         normalisation scheme.
+    mc_seed : int or None, optional
+        Optional base seed used to make Monte Carlo realisations reproducible
+        across runs.
 
     Returns
     -------
@@ -1454,6 +1471,13 @@ def SN_respl_covariance(x_locations, y_locations, n_cov_samples, edges, nbr, fra
     expected_counts *= total_positions / np.sum(expected_counts)
 
     overall_samples = np.empty((4, n_cov_samples, nbr), dtype=np.float32)
+    if mc_seed is None:
+        # No explicit seed from user -> non-deterministic run-level entropy.
+        ss = np.random.SeedSequence()
+    else:
+        # Explicit user seed -> deterministic reproducibility across runs.
+        ss = np.random.SeedSequence(int(mc_seed) & 0xFFFFFFFF)
+    seeds = ss.generate_state(n_cov_samples, dtype=np.uint32)
 
     for r in range(n_cov_samples):
         # Draw a Poisson realisation of the underlying smoothed process
@@ -1462,7 +1486,7 @@ def SN_respl_covariance(x_locations, y_locations, n_cov_samples, edges, nbr, fra
             vertex_field,
             edges,
             pixel_size,
-            rng_seed=r,
+            rng_seed=int(seeds[r]),
         )
 
         if len(transcript_positions) == 0:

@@ -54,6 +54,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--resolution", type=float, default=20.0)
     p.add_argument("--nbr", type=int, default=25)
     p.add_argument("--n-cov-samples", type=int, default=None)
+    p.add_argument("--mc-seed", type=int, default=None)
     p.add_argument("--area-mask", type=float, default=None)
     p.add_argument("--overwrite", action="store_true")
 
@@ -88,6 +89,7 @@ def main(argv: list[str] | None = None) -> int:
         resolution=args.resolution,
         nbr=args.nbr,
         n_cov_samples=args.n_cov_samples,
+        mc_seed=args.mc_seed,
         area_mask=args.area_mask,
         overwrite=args.overwrite,
         comm=comm,

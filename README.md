@@ -259,6 +259,10 @@ This is particularly convenient in notebook-based workflows and Python scripts, 
   Additional flags appended to the `mpirun` command (for scheduler/network tuning, binding policies, etc.).
 - `tmp_dir` (`str | None`, default: `None`)  
   Temporary directory used to stage the input DataFrame and config for spawned MPI workers.
+- `mc_seed` (`int | None`, default: `None`)  
+  Optional base random seed for Monte Carlo covariance realisations.  
+  If you leave it to `None`, Monte Carlo draws are not fixed between runs.  
+  With a fixed seed and fixed parameters (including `n_cov_samples`), rerunning produces the same set of realisations and therefore the same covariance matrices.
 
 For users unfamiliar with MPI, the default behaviour is usually sufficient: install MPI once, call `compute_Minkowski_profiles(...)` normally, and let minkiPy use all detected CPUs automatically.
 
