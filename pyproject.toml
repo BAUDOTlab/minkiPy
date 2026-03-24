@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "minkipy-st"
+version = "0.1.0"
+description = "Minkowski-profile analysis toolkit for spatial transcriptomics"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+authors = [
+  { name = "BAUDOTlab" }
+]
+keywords = ["spatial transcriptomics", "minkowski", "morphology", "bioinformatics"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Operating System :: OS Independent",
+  "Intended Audience :: Science/Research",
+  "Topic :: Scientific/Engineering :: Bio-Informatics"
+]
+dependencies = [
+  "numpy",
+  "pandas",
+  "scipy",
+  "numba",
+  "scanpy",
+  "h5py",
+  "matplotlib",
+  "scikit-learn",
+  "tifffile",
+  "mpi4py",
+  "tqdm",
+  "adjustText",
+  "umap-learn",
+  "networkx",
+  "python-igraph",
+  "leidenalg",
+  "python-louvain",
+  "pyreadr",
+  "pyarrow"
+]
+
+[project.urls]
+Homepage = "https://github.com/BAUDOTlab/minkiPy"
+Repository = "https://github.com/BAUDOTlab/minkiPy"
+
+[project.scripts]
+minkiPy = "minkiPy.__main__:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["minkiPy*"]
