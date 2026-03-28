@@ -4,120 +4,34 @@
   <img src="minkiPy/minkiPy_illust.png" alt="3D density distribution separated into level sets" width="520">
 </p>
 
-`minkiPy` is a Python framework for the differential analysis of gene spatial organisation in spatial transcriptomics data using Minkowski functionals and tensors.
+`minkiPy` is a Python package for differential analysis of gene spatial organisation in spatial transcriptomics data, using Minkowski functionals and tensors.
 
-## Core input requirement
-
-The core `minkiPy` workflow is technology-agnostic. It expects as input a `pandas.DataFrame` containing transcript-level spatial coordinates with the following required columns:
-
-- `gene`
-- `global_x`
-- `global_y`
-
-This input format is central to the package design. Once data are represented in this generic schema, the same workflow can be applied to both imaging-based and sequencing-based spatial transcriptomics data.
+This repository accompanies the paper **"Differential Analysis of Gene Spatial Organisation with Minkowski Functionals and Tensors"** and includes:
+- the `minkiPy` package,
+- a command-line interface,
+- an exploratory notebook to get started quickly on your own data,
+- full workflow notebooks used for end-to-end analyses.
 
 ---
 
-## Method overview
+## Contents
 
-For each gene, `minkiPy` reconstructs a spatial density field from transcript coordinates and computes a Minkowski profile across multiple level sets.
-
-Each Minkowski profile is based on three Minkowski functionals and one tensor-derived anisotropy index:
-
-- `W0` (area)
-- `W1` (boundary length)
-- `W2` (Euler-characteristic-related quantity)
-- `beta` (anisotropy index derived from a Minkowski tensor)
-
-These four quantities are evaluated across a level-set grid and stacked as a `(4, LS)` Minkowski profile for each gene.
-
-`minkiPy` can also generate Monte Carlo realisations to estimate profile covariance. When covariance is available, downstream comparisons can use covariance-aware Gaussian 2-Wasserstein distances. Otherwise, Euclidean distances between Minkowski profiles provide a simpler exploratory alternative.
-
----
-
-## Repository structure
-
-```text
-minkiPy/
-├── minkiPy/                              # Core package
-│   ├── minkowski_core.py                 # Per-gene Minkowski profile computation
-│   ├── mpi_driver.py                     # MPI distribution + auto-MPI wrapper
-│   ├── cli.py                            # Command-line entry logic
-│   ├── io.py                             # NPZ/HDF5 output writing and merge
-│   └── downstream/                       # Post-processing, distances computation, data visualisation
-├── minkiPy_env.yaml                      # Conda environment
-├── minkiPy_exploratory_workflow.ipynb    # Lightweight introduction and exploratory workflow
-├── minkiPy_FSHD_complete_workflow.ipynb  # Complete workflow reproducing the FSHD application figures of the article
-├── minkiPy_CRC_complete_workflow.ipynb   # Complete workflow reproducing the CRC application figures of the article
-└── examples/                             # Data staging directory used by notebooks
-```
-
----
-
-## Installation
-
-### 1) Install an MPI implementation on your machine for parallelization (required)
-
-`mpi4py` is a Python binding, but it still requires a system MPI runtime (`mpirun`/`mpiexec`) to be installed first.
-
-Check whether MPI is already available:
-
-```bash
-mpirun --version
-```
-
-If this command is not found, install MPI first:
-
-- **Ubuntu/Debian**
-  ```bash
-  sudo apt update
-  sudo apt install -y openmpi-bin libopenmpi-dev
-  ```
-- **macOS (Homebrew)**
-  ```bash
-  brew install open-mpi
-  ```
-- **Conda-only setup (cross-platform)**
-  ```bash
-  conda install -c conda-forge openmpi mpi4py
-  ```
-
-On HPC clusters, MPI is often provided through environment modules (for example `module load openmpi` or `module load mpich`).
-
-### 2) Install from pip (recommended)
-
-```bash
-pip install minkipy-st
-```
-
-Package name on PyPI is `minkipy-st`, while import and CLI names remain `minkiPy`.
-
-```bash
-python -c "import minkiPy; print('minkiPy import OK')"
-minkiPy --help
-```
-
-You can also use:
-
-```bash
-python -m minkiPy --help
-```
-
-### 3) Optional: local development install from source
-
-```bash
-git clone https://github.com/BAUDOTlab/minkiPy.git
-cd minkiPy
-pip install -e .
-```
-
-If you prefer a Conda environment for notebooks, the repository also provides `minkiPy_env.yaml`.
+1. [Input format](#input-format)
+2. [Method summary](#method-summary)
+3. [Installation](#installation)
+4. [Quick start (Python)](#quick-start-python)
+5. [Command-line usage](#command-line-usage)
+6. [MPI usage patterns](#mpi-usage-patterns)
+7. [Repository layout](#repository-layout)
 
 ---
 
 ## Input format
 
-At minimum, supply a transcript table equivalent to:
+`minkiPy` expects a `pandas.DataFrame` with transcript-level coordinates and these columns:
+- `gene`
+- `global_x`
+- `global_y`
 
 ```python
 import pandas as pd
@@ -130,11 +44,155 @@ transcripts_df = pd.DataFrame({
 ```
 
 Notes:
+- `gene` is a string identifier.
+- `global_x` and `global_y` should share the same coordinate system (usually micrometres).
+- Converting platform-specific files to this format is done upstream.
 
-- `gene` is treated as string identity.
-- `global_x` and `global_y` are spatial coordinates, expressed in micrometres, in a common spatial reference frame.
-- Upstream conversion from platform-specific files is intentionally left to the user.
-- Minkowski profiles are computed independently for each sample. Comparisons between samples are performed during downstream analysis.
+---
+
+## Method summary
+
+For each gene, `minkiPy` reconstructs a spatial density field and computes a profile across level sets.
+
+Each profile contains:
+- `W0` (area),
+- `W1` (boundary length),
+- `W2` (Euler-characteristic-related term),
+- `beta` (anisotropy index from a Minkowski tensor).
+
+Profiles are shaped `(4, LS)` per gene.
+
+Optional Monte Carlo runs estimate covariance. Distances can then be covariance-aware Gaussian 2-Wasserstein, or Euclidean for fast exploration.
+
+These profiles are the starting point for downstream analysis: sample and gene comparisons, condition-level ranking of spatial reorganisation, and embedding/graph analyses.
+
+---
+
+## Installation
+
+> `mpi4py` needs an MPI runtime (`mpirun`/`mpiexec`) installed on your machine.
+
+Before choosing an option:
+- **Option A (pip from PyPI)** does **not** require cloning this repository.
+- **Options B/C (YAML or local development)** require a local clone first:
+
+```bash
+git clone https://github.com/BAUDOTlab/minkiPy.git
+cd minkiPy
+```
+
+### Option A (recommended): pip
+
+1) Check MPI:
+
+```bash
+mpirun --version
+```
+
+If missing, install MPI first:
+
+- **Ubuntu/Debian**
+  ```bash
+  sudo apt update
+  sudo apt install -y openmpi-bin libopenmpi-dev
+  ```
+- **macOS (Homebrew)**
+  ```bash
+  brew install open-mpi
+  ```
+- **Conda-only**
+  ```bash
+  conda install -c conda-forge openmpi mpi4py
+  ```
+
+2) Update pip tooling:
+
+```bash
+python -m pip install --upgrade pip setuptools wheel
+```
+
+3) Install:
+
+```bash
+pip install minkipy-st
+```
+
+4) Verify:
+
+```bash
+python -c "import minkiPy; print('minkiPy import OK')"
+python -m minkiPy --help
+```
+
+### Option B: Conda environment from YAML
+
+Use this option from the repository root (after `git clone` and `cd minkiPy`).
+
+1) Update Conda first:
+
+```bash
+conda update -n base -c defaults conda
+```
+
+2) Create the environment:
+
+```bash
+conda env create -f minkiPy_env.yaml
+```
+
+3) Activate it:
+
+```bash
+conda activate minkiPy
+```
+
+4) Install package from source (editable):
+
+```bash
+pip install -e .
+```
+
+5) (Optional) Add a Jupyter kernel:
+
+```bash
+python -m ipykernel install --user --name minkiPy --display-name "Python (minkiPy)"
+```
+
+### Option C: Local development install
+
+Use this option from the repository root (after `git clone` and `cd minkiPy`).
+
+```bash
+python -m pip install --upgrade pip setuptools wheel
+pip install -e .
+```
+
+### Troubleshooting
+
+If installation fails:
+
+1) Retry after updating pip tooling:
+
+```bash
+python -m pip install --upgrade pip setuptools wheel
+```
+
+2) For Conda setups, also update Conda:
+
+```bash
+conda update -n base -c defaults conda
+```
+
+3) Create a clean virtual environment and reinstall:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate   # Windows (PowerShell): .venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip setuptools wheel
+pip install minkipy-st
+```
+
+4) If MPI errors persist, re-check `mpirun --version` and ensure MPI + `mpi4py` are compatible.
 
 ---
 
@@ -145,26 +203,23 @@ import minkiPy
 
 h5_path = minkiPy.compute_Minkowski_profiles(
     transcripts_df,
-    name="sample_A",          # Name used to label the output sample
-    output_path="results",    # Directory where output files will be written
-    resolution=20.0,          # Spatial grid resolution, in micrometres
-    nbr=25,                   # Number of level sets used to build the Minkowski profiles
-    n_cov_samples=None,       # Use the default number of Monte Carlo realisations determined by minkiPy; set to 0 for a faster exploratory run without covariance estimation
-    # mpi_procs is optional:
-    # - if omitted, minkiPy automatically uses all available CPUs
-    # - reducing mpi_procs can lower RAM usage
-    # - set mpi_procs=1 to force single-process execution
+    name="sample_A",
+    output_path="results",
+    resolution=20.0,
+    nbr=25,
+    n_cov_samples=None,  # default MC realisations; set 0 for faster exploratory runs
+    # mpi_procs:
+    # None -> auto-detect
+    # 1    -> single process
+    # >1   -> spawn MPI processes
 )
-
 ```
 
-This computes per-gene profiles and writes a merged file:
+Typical output file:
 
 `results/minkiPy_merged_resolution_<resolution>_<name>.h5`
 
-After computing Minkowski profiles for one sample, the same step can be repeated for additional samples, for example `sample_B`, `sample_C`, and so on. Each run produces one merged HDF5 output file.
-
-Once several samples have been processed, these merged outputs can be loaded together with `process_data` to start the downstream analysis. A typical workflow is to define the list of output files, specify the sample order, and optionally define groups of samples corresponding to biological conditions.
+Example downstream loading:
 
 ```python
 filepaths = [
@@ -172,10 +227,7 @@ filepaths = [
     "results/minkiPy_merged_resolution_20.0_sample_B.h5",
 ]
 
-ordered_conditions = [
-    "sample_A",
-    "sample_B",
-]
+ordered_conditions = ["sample_A", "sample_B"]
 
 data = minkiPy.process_data(
     filepaths,
@@ -184,13 +236,22 @@ data = minkiPy.process_data(
 )
 ```
 
-This creates a common data object that can then be used for downstream analyses. More complete examples are provided in the notebooks included in the repository.
+### Downstream analysis (beyond `process_data`)
+
+After `process_data`, typical downstream steps include:
+- condition-level averaging with `add_averaged_condition_datasets`,
+- sample or gene distances with `compute_sample_distances` and `compute_gene_distances`,
+- graph and embedding visualisations (`plot_dataset_graphs_from_data`, `plot_gene_graphs_from_data`, `plot_pca_grid_by_condition`),
+- differential ranking and trend plots (`plot_top_changing_genes`, `plot_w2_abslog2fc_with_trend`),
+- profile-level diagnostics (`plot_minkowski_profile`, `plot_w2_diag_vs_euclid_distributions`, `plot_w2_diag_vs_full_plus_euclid_distributions`).
+
+To get started quickly with your **own** data, begin with `minkiPy_exploratory_workflow.ipynb`.
 
 ---
 
 ## Command-line usage
 
-The CLI is MPI-aware. Recommended invocation is via `python -m minkiPy` under `mpirun`.
+Run under MPI:
 
 ```bash
 mpirun -n 8 python -m minkiPy \
@@ -201,7 +262,7 @@ mpirun -n 8 python -m minkiPy \
   --nbr 25
 ```
 
-If your file uses different column names:
+Custom column names:
 
 ```bash
 mpirun -n 8 python -m minkiPy \
@@ -214,19 +275,17 @@ mpirun -n 8 python -m minkiPy \
   --output-path results
 ```
 
-Supported input formats in the CLI loader: `.csv`, `.txt`, `.tsv`, `.parquet`.
+Supported formats: `.csv`, `.txt`, `.tsv`, `.parquet`.
 
 ---
 
-## Python usage patterns
+## MPI usage patterns
 
-### Standard MPI execution
+### 1) Standard MPI launch
 
-`minkiPy` can be used in a standard MPI context, for example when a Python script is launched explicitly with `mpirun` or `mpiexec`. In this case, `compute_Minkowski_profiles(...)` runs within the MPI execution environment and distributes the computation across processes.
+Launch your script with `mpirun`/`mpiexec`. `compute_Minkowski_profiles(...)` uses the active MPI communicator.
 
-### MPI execution from a Python script or notebook
-
-`minkiPy` also provides an integrated wrapper that makes MPI execution possible directly from a standard Python script or a Jupyter notebook, without manually launching Python under `mpirun`. In this case, it is sufficient to pass the desired number of MPI processes to `compute_Minkowski_profiles(...)`, for example:
+### 2) Auto-MPI from Python or notebook
 
 ```python
 h5_path = minkiPy.compute_Minkowski_profiles(
@@ -235,55 +294,32 @@ h5_path = minkiPy.compute_Minkowski_profiles(
     output_path="results",
     resolution=20.0,
     nbr=25,
-    mpi_procs=60,          # Adapt this to the number of MPI processes you want to use
+    mpi_procs=60,
     use_hwthreads=True,
 )
 ```
 
-This is particularly convenient in notebook-based workflows and Python scripts, while still allowing efficient parallel execution on multi-core or multi-node systems.
-
-
-### Optional MPI-related parameters in `compute_Minkowski_profiles`
-
-`compute_Minkowski_profiles(...)` exposes a few MPI options that are useful when running from Python or notebooks:
-
-- `mpi_procs` (`int | None`, default: `None`)  
-  Number of MPI processes to launch when you are **not already under MPI**.  
-  - `None` (default): automatically uses `SLURM_NTASKS` if defined, otherwise `os.cpu_count()`.
-  - `1`: disables auto-MPI spawning and runs in a single Python process.
-  - `>1`: launches `mpirun -n <mpi_procs> ...`.
-- `use_hwthreads` (`bool`, default: `False`)  
-  Adds `--use-hwthread-cpus` to `mpirun` (OpenMPI-style) to also use logical CPUs (hyper-threads).
-- `oversubscribe` (`bool`, default: `False`)  
-  Adds `--map-by :OVERSUBSCRIBE`, which can help when launching more ranks than available slots.
-- `extra_mpirun_args` (`list[str] | None`, default: `None`)  
-  Additional flags appended to the `mpirun` command (for scheduler/network tuning, binding policies, etc.).
-- `tmp_dir` (`str | None`, default: `None`)  
-  Temporary directory used to stage the input DataFrame and config for spawned MPI workers.
-- `mc_seed` (`int | None`, default: `None`)  
-  Optional base random seed for Monte Carlo covariance realisations.  
-  If you leave it to `None`, Monte Carlo draws are not fixed between runs.  
-  With a fixed seed and fixed parameters (including `n_cov_samples`), rerunning produces the same set of realisations and therefore the same covariance matrices.
-
-For users unfamiliar with MPI, the default behaviour is usually sufficient: install MPI once, call `compute_Minkowski_profiles(...)` normally, and let minkiPy use all detected CPUs automatically.
-
+Useful parameters:
+- `mpi_procs` (`int | None`, default `None`)
+- `use_hwthreads` (`bool`, default `False`)
+- `oversubscribe` (`bool`, default `False`)
+- `extra_mpirun_args` (`list[str] | None`)
 
 ---
 
-## Notebook overview
+## Repository layout
 
-The repository includes three main notebooks:
-
-- `minkiPy_FSHD_complete_workflow.ipynb`: complete end-to-end workflow for the FSHD application presented in the associated paper.
-- `minkiPy_CRC_complete_workflow.ipynb`: complete end-to-end workflow for the CRC application presented in the associated paper.
-- `minkiPy_exploratory_workflow.ipynb`: lightweight practical introduction to `minkiPy` for rapid exploratory use.
-
-The two complete notebooks reproduce the full analysis pipelines used in the paper, from data download and preprocessing to Minkowski-profile computation and downstream analysis. They provide the full workflows required to reproduce the figures associated with the FSHD and CRC application sections of the manuscript, and illustrate the use of the downstream analysis functions in realistic end-to-end settings.
-
-The exploratory notebook is intended as a faster entry point for new users. It shows how to prepare data, run `minkiPy`, and obtain a first exploratory analysis without Monte Carlo realisations or covariance estimation. In this setting, downstream distances are Euclidean rather than covariance-aware 2-Wasserstein distances. This notebook is useful for quickly understanding the package and visualising its main capabilities on the example data. For rigorous analyses intended for publication, the complete covariance-aware workflow is recommended.
-
----
-
-## Citation
-
-If you use `minkiPy`, please cite both the software repository and the associated manuscript.
+```text
+minkiPy/
+├── minkiPy/                              # Core package
+│   ├── minkowski_core.py                 # Per-gene Minkowski profile computation
+│   ├── mpi_driver.py                     # MPI distribution + auto-MPI wrapper
+│   ├── cli.py                            # Command-line logic
+│   ├── io.py                             # NPZ/HDF5 output writing and merge
+│   └── downstream/                       # Post-processing, distances, visualisation
+├── minkiPy_env.yaml                      # Conda environment definition
+├── minkiPy_exploratory_workflow.ipynb    # Introductory exploratory workflow
+├── minkiPy_FSHD_complete_workflow.ipynb  # Full FSHD workflow
+├── minkiPy_CRC_complete_workflow.ipynb   # Full CRC workflow
+└── examples/                             # Data staging for notebooks
+```
