@@ -16,6 +16,7 @@ from matplotlib.ticker import LogFormatter, LogLocator
 
 import tifffile as tiff
 from scipy.ndimage import gaussian_filter
+from scipy.stats import spearmanr
 
 from typing import Optional, Sequence, Union, Tuple, List, Dict, Any
 
