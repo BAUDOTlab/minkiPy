@@ -4347,8 +4347,9 @@ def plot_w2_abslog2fc_with_trend(
     which is often less informative than the binned trend when the spread
     increases with Wasserstein distance.
 
-    The function also reports the Pearson correlation between ``W2`` and
-    ``|log2FC|``.
+    The function also reports the Pearson and Spearman correlations between
+    ``W2`` and ``|log2FC|``.
+
 
     Parameters
     ----------
@@ -4404,9 +4405,10 @@ def plot_w2_abslog2fc_with_trend(
     Returns
     -------
     dict
-        Dictionary containing the Pearson correlation, the number of retained
-        genes, the binned trend statistics, and the optional regression
-        coefficients.
+        Dictionary containing the Pearson and Spearman correlations, the number
+        of retained genes, the binned trend statistics, and the optional
+        regression coefficients.
+
 
     Notes
     -----
@@ -4487,12 +4489,13 @@ def plot_w2_abslog2fc_with_trend(
         raise ValueError("No valid points remain after filtering.")
 
     # ------------------------------------------------------------------
-    # Pearson correlation between W2 and |log2FC|
+    # Pearson and Spearman correlations between W2 and |log2FC|
     # ------------------------------------------------------------------
     x0 = x - x.mean()
     y0 = y - y.mean()
     denom = np.sqrt(np.sum(x0 * x0) * np.sum(y0 * y0))
     pearson_r = (np.sum(x0 * y0) / denom) if denom > 0 else np.nan
+    spearman_r = float(spearmanr(x, y).statistic)
 
     # ------------------------------------------------------------------
     # Define bin edges for the trend curve
@@ -4598,7 +4601,12 @@ def plot_w2_abslog2fc_with_trend(
         raise ValueError("xscale must be one of {'log', 'linear', 'symlog'}.")
 
     ax.set_title(
-        f"{title}\nPearson corr(W2, |log2FC|) = {pearson_r:.3f}   (n={x.size})",
+        (
+            f"{title}\n"
+            f"Pearson corr(W2, |log2FC|) = {pearson_r:.3f}\n"
+            f"Spearman corr(W2, |log2FC|) = {spearman_r:.3f}   (n={x.size})"
+        ),
+
         fontsize=17,
     )
 
@@ -4612,6 +4620,7 @@ def plot_w2_abslog2fc_with_trend(
 
     return {
         "pearson_r_w2_abslog2fc": float(pearson_r) if np.isfinite(pearson_r) else np.nan,
+        "spearman_r_w2_abslog2fc": float(spearman_r) if np.isfinite(spearman_r) else np.nan,
         "n": int(x.size),
         "binned_x_median": x_mid,
         "binned_abslog2fc_median": y_med,
