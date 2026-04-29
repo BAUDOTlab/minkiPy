@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "minkipy-st"
-version = "0.1.2"
+version = "0.1.3"
 description = "Minkowski-profile analysis toolkit for spatial transcriptomics"
 readme = "README.md"
 requires-python = ">=3.10"
