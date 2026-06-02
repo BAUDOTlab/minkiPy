@@ -18,11 +18,14 @@ This repository accompanies the paper **"Differential Analysis of Gene Spatial O
 
 1. [Input format](#input-format)
 2. [Method summary](#method-summary)
-3. [Installation](#installation)
-4. [Quick start (Python)](#quick-start-python)
-5. [Command-line usage](#command-line-usage)
-6. [MPI usage patterns](#mpi-usage-patterns)
-7. [Repository layout](#repository-layout)
+3. [System requirements](#system-requirements)
+4. [Installation](#installation)
+5. [Demo](#demo)
+6. [Quick start (Python)](#quick-start-python)
+7. [Command-line usage](#command-line-usage)
+8. [MPI usage patterns](#mpi-usage-patterns)
+9. [Repository layout](#repository-layout)
+
 
 ---
 
@@ -68,7 +71,31 @@ These profiles are the starting point for downstream analysis: sample and gene c
 
 ---
 
+## System requirements
+
+### Software dependencies
+
+`minkiPy` requires **Python >=3.10**. It runs on CPU and does **not** require a GPU or any other accelerator.
+
+The recommended installation command, `pip install minkipy-st`, installs the required Python dependencies automatically. The complete dependency list is kept in [`pyproject.toml`](pyproject.toml), and the optional reproducible notebook environment is described in [`minkiPy_env.yaml`](minkiPy_env.yaml).
+
+Because `minkiPy` can run computations in parallel with `mpi4py`, an MPI runtime such as Open MPI is required for MPI execution; see the installation section below for the short MPI check and platform-specific install commands.
+
+### Operating systems tested
+
+The software has been tested on the following operating systems:
+
+- **Ubuntu 22.04.5 LTS**
+- **macOS Ventura 13.7.8 and Tahoe 26**
+- **Windows 11 2025**
+
+### Hardware requirements
+
+No non-standard hardware is required. A normal CPU-only desktop or laptop computer is sufficient for installation and small tests. Runtime and memory use scale with the number of transcripts, number of genes, image resolution, and whether Monte Carlo covariance estimation is enabled. For the exploratory notebook demo, allow enough disk space for the downloaded archive and extracted data; the raw archive is approximately 10 GB before extraction.
+
 ## Installation
+
+Typical installation time on a normal desktop computer is **5-30 minutes**. The `pip` installation itself is usually fast; most variability comes from installing or configuring MPI and Python environments.
 
 > `mpi4py` needs an MPI runtime (`mpirun`/`mpiexec`) installed on your machine.
 
@@ -195,6 +222,33 @@ pip install minkipy-st
 4) If MPI errors persist, re-check `mpirun --version` and ensure MPI + `mpi4py` are compatible.
 
 ---
+
+## Demo
+
+The recommended demo is the exploratory notebook: [`minkiPy_exploratory_workflow.ipynb`](minkiPy_exploratory_workflow.ipynb).
+
+This notebook provides an end-to-end exploratory workflow that:
+
+1. downloads the FSHD raw dataset from Zenodo,
+2. extracts the data into `examples/FSHD_dataset/raw_data/`,
+3. preprocesses the MERFISH transcript files and selected center-region masks,
+4. computes Minkowski profiles with `n_cov_samples=0` for a fast no-covariance run,
+5. loads the merged HDF5 outputs with `minkiPy.process_data`,
+6. computes Euclidean downstream distances, and
+7. generates exploratory plots and summary CSV files.
+
+### Expected demo output
+
+Expected intermediate and final outputs include:
+
+- downloaded data at `examples/FSHD_dataset/raw_data.zip`, followed by extracted files under `examples/FSHD_dataset/raw_data/`;
+- per-sample merged profile files named like `examples/FSHD_dataset/minkiPy_results_FSHD_exploratory_analysis/minkiPy_merged_resolution_20.0_<sample>.h5`;
+- exploratory figures named `examples/FSHD_dataset/fig_exploratory_*.pdf`;
+- exploratory tables named `examples/FSHD_dataset/table_exploratory_*.csv`.
+
+### Expected demo runtime
+
+On a normal desktop computer, the exploratory notebook is expected to take about **2 hours** end-to-end in the background, including data download, extraction, Minkowski profile computation, and downstream exploratory analysis. The actual runtime depends on internet bandwidth, disk speed, CPU core count qnd MPI configuration.
 
 ## Quick start (Python)
 
